@@ -62,7 +62,7 @@ goal_y = 0.4
 
 
 goal_x = 0.4
-goal_y = 0.3
+goal_y = 0.5
 # goal_x = 2.15
 # goal_y = 2.03
 
