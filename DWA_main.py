@@ -34,11 +34,11 @@ obs_sensitivity = 0.5
 
 filename = "local_costmap_copy.txt"
 
-init_x = 1
-init_y = 0.8
+init_x = 0.3
+init_y = 0.5
 
-init_x = 1.4
-init_y = 1.2
+# init_x = 1.4
+# init_y = 1.2
 
 init_theta = 0
 # init_theta = np.pi/2
@@ -61,7 +61,7 @@ goal_x = 0.5
 goal_y = 0.4
 
 
-goal_x = 0.4
+goal_x = 1.1
 goal_y = 0.5
 # goal_x = 2.15
 # goal_y = 2.03
@@ -102,11 +102,37 @@ def main(filename,min_v,max_v,min_w,max_w,max_a_v,max_a_w,delta_v,delta_w,dt,n,o
     cm = costmap.read_costmap(filename)
     #new_list = deepcopy(cm)
     cm = [[0 for i in row] for row in cm]   # empty costmap
-    obstacles = costmap.find_obstacles(cm)
+    # obstacles = costmap.find_obstacles(cm)
     cm_rev = costmap.cm_rev(cm)
     cm_rev2 = costmap.cm_norm(cm_rev)
-
     
+    #obstacles generated for test
+    cm_rev2[12][9] = 0
+    cm_rev2[12][10] = 0
+    cm_rev2[12][11] = 0
+    cm_rev2[12][12] = 0
+
+    cm_rev2[13][9] = 0
+    cm_rev2[13][10] = 0
+    cm_rev2[13][11] = 0
+    cm_rev2[13][12] = 0
+
+    cm_rev2[14][9] = 0
+    cm_rev2[14][10] = 0
+    cm_rev2[14][11] = 0
+    cm_rev2[14][12] = 0
+
+    cm_rev2[15][9] = 0
+    cm_rev2[15][10] = 0
+    cm_rev2[15][11] = 0
+    cm_rev2[15][12] = 0
+
+    # cm_rev2[13][11] = 0
+    # cm_rev2[13][12] = 0
+    # cm_rev2[12][11] = 0
+
+
+    obstacles = costmap.find_obstacles(cm_rev2)
 
 
     robot = Robot(cm_rev2,min_v,max_v,min_w,max_w,max_a_v,max_a_w,max_dec_v,max_dec_w,delta_v,delta_w,dt,n,obs_sensitivity)
@@ -175,7 +201,7 @@ def main(filename,min_v,max_v,min_w,max_w,max_a_v,max_a_w,delta_v,delta_w,dt,n,o
     plt_ctr = 0
     while not goal_Flag:
         
-        paths,opt_path = robot.calc_opt_traj(goal_x,goal_y,state,obstacles)
+        paths,opt_path = robot.calc_opt_traj(goal_x,goal_y,state,obstacles,goal_region)
 
         # velocity commands
         opt_v = opt_path.v   
@@ -208,9 +234,10 @@ def main(filename,min_v,max_v,min_w,max_w,max_a_v,max_a_w,delta_v,delta_w,dt,n,o
             plt.ylim(0,2)
             if plt_ctr == 0:
                 plt.pause(1)
-            # plt.pause(0.001)
+            plt.pause(0.001)
             # plt.pause(0.5)
-            while not plt.waitforbuttonpress(): pass
+            
+            # while not plt.waitforbuttonpress(): pass
             plt_ctr += 1
 
 

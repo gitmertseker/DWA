@@ -54,7 +54,7 @@ class Costmap:
         obstacles = []
         for z in range(len(cm[0])):
             for i in range(len(cm[0])):
-                if cm[i][z] > 97:
+                if cm[i][z] < 0.03:
                     obs_temp = Obstacle(i,z)
                     obstacles.append(obs_temp)
         return obstacles
@@ -136,10 +136,11 @@ class Robot:
         # self.w_count = 6
         self.w_count = 5
         # self.heading_cost_weight = 0.1
-        self.heading_cost_weight = 3.1
+        # self.heading_cost_weight = 3.1
+        self.heading_cost_weight = 10
         # self.obstacle_cost_weight = 0.8
-        self.obstacle_cost_weight = 0
-        self.velocity_cost_weight = 1
+        self.obstacle_cost_weight = 5
+        self.velocity_cost_weight = 0.4
 
         self.traj_paths = []
         self.traj_opt = []
@@ -201,10 +202,10 @@ class Robot:
         return next_x_s, next_y_s, next_theta_s
 
 
-    def calc_opt_traj(self,goal_x,goal_y,state,obstacles):
+    def calc_opt_traj(self,goal_x,goal_y,state,obstacles,goal_region):
 
         paths = self.make_path(state)
-        opt_path = self.eval_path(paths,goal_x,goal_y,obstacles,state)
+        opt_path = self.eval_path(paths,goal_x,goal_y,obstacles,state,goal_region)
         
         self.traj_opt.append(opt_path)
 
@@ -246,7 +247,7 @@ class Robot:
 
 
 
-    def eval_path(self,paths,goal_x,goal_y,obstacles,state):
+    def eval_path(self,paths,goal_x,goal_y,obstacles,state,goal_region):
         
         score_headings_temp = []
         score_velocities_temp = []
@@ -256,7 +257,7 @@ class Robot:
 
         for path in paths:
 
-            score_headings_temp.append(self.calc_heading(path,goal_x,goal_y))
+            score_headings_temp.append(self.calc_heading(path,goal_x,goal_y,state,goal_region))
             score_velocities_temp.append(self.calc_velocity(path))
             # score_obstacles_temp.append(self.calc_clearance(path,obstacles,state))
             score_obstacles.append(self.calc_clearance(path,state)) #iceride normalize ediliyor !!
@@ -411,11 +412,19 @@ class Robot:
 
 
 
-    def calc_heading(self,path,goal_x,goal_y):
+    def calc_heading(self,path,goal_x,goal_y,state,goal_region):
         
-        last_x = path.x[2]
-        last_y = path.y[2]
-        last_theta = path.theta[2]
+        dis_to_goal = np.sqrt((goal_x-state.x)**2 + (goal_y-state.y)**2)
+
+        a = 2
+        # if len(path.x)-1 > dis_to_goal > 50*goal_region:
+        #     a = -1
+        # else:
+        #     a = 2
+
+        last_x = path.x[a]
+        last_y = path.y[a]
+        last_theta = path.theta[a]
 
         angle_to_goal = math.atan2((goal_y-last_y),(goal_x-last_x))
         score_angle = angle_to_goal-last_theta
@@ -549,7 +558,7 @@ class Robot:
         # self.cost_score = []
         self.temp_cost = 0
         self.temp_obs = 0
-        temp_stp = 1
+        temp_stp = 0
         cost_sum = []
         cost_temp = 0
 
@@ -566,14 +575,14 @@ class Robot:
             y1 = self.meter2pixel(y1,state)
             y2 = self.meter2pixel(y2,state)
             pix_ctr = max(abs(x2-x1),abs(y2-y1))
-            # if pix_ctr == 0:
-            #     pix_ctr = 1
+            if pix_ctr == 0:
+                pix_ctr = 1
             temp_stp = pix_ctr + temp_stp
 
         # if temp_stp == 0:
         #     temp_stp = 1
 
-        for a in range(1,len(path.x)-1):
+        for a in range(len(path.x)-1):
             x1 = path.x[a]
             x2 = path.x[a+1]
 
@@ -595,14 +604,14 @@ class Robot:
                         x3 = self.meter2pixel(path.x[a-1],state)
                         y3 = self.meter2pixel(path.y[a-1],state)
                         if max(abs(x2-x1),abs(y2-y1),abs(y3-y2),abs(x3-x2)) == 0:
-                            if not (a == len(path.x)-1):
+                            if not (a == len(path.x)-2):
                                 continue
+                            else:
+                                return cost_temp/temp_stp
                     if self.costmap[x1][y1] <0.03:
-                        cost_sum.append(0)
-                        return sum(cost_sum)/temp_stp
+                        return cost_temp/temp_stp
                     else:
-                        cost_temp = self.costmap[x1][y1]
-                        cost_sum.append(cost_temp)
+                        cost_temp = cost_temp + self.costmap[x1][y1]
             else:
                 for i in range (1,stp+1):
                     if abs(x2-x1) > abs(y2-y1):
@@ -610,23 +619,19 @@ class Robot:
                         yy = y1 + math.floor(sign_y*i*slope)
                         if xx<40 and yy<40:
                             if self.costmap[xx][yy] <0.03:
-                                cost_sum.append(0)
-                                return sum(cost_sum)/temp_stp
+                                return cost_temp/temp_stp
                             else:
-                                cost_temp = self.costmap[xx][yy]
-                                cost_sum.append(cost_temp)
+                                cost_temp = cost_temp + self.costmap[xx][yy]
                     else:
                         yy = y1 + sign_y*i
                         xx = x1 + math.floor(sign_x*i*(slope))               
                         if xx<40 and yy<40:
                             if self.costmap[xx][yy] <0.03:
-                                cost_sum.append(0)
-                                return sum(cost_sum)/temp_stp
+                                return cost_temp/temp_stp
                             else: 
-                                cost_temp = self.costmap[xx][yy]
-                                cost_sum.append(cost_temp)
+                                cost_temp = cost_temp + self.costmap[xx][yy]
 
-        cost_norm = sum(cost_sum)/temp_stp
+        cost_norm = cost_temp/temp_stp
 
         return cost_norm
 
