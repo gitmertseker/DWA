@@ -70,6 +70,17 @@ class Costmap:
         return [[i/100 for i in row] for row in cm_rev]
 
 
+
+    def find_index(l, elem):
+        for row, i in enumerate(l):
+            try:
+                column = i.index(elem)
+            except ValueError:
+                continue
+            return row, column
+        return -1
+
+
 class RobotState:
     def __init__(self,init_x,init_y,init_theta,init_v,init_w):
 
@@ -160,7 +171,8 @@ class Robot:
         self.cur_w = state.w
 
         Vs = [self.min_v, self.max_v, self.min_w, self.max_w]  #maximum velocity area
-        Vd = [(self.cur_v-self.max_a_v*self.dt), (self.cur_v+self.max_a_v*self.dt), (self.cur_w-self.max_a_w*self.dt), (self.cur_w+self.max_a_w*self.dt)]   #velocities robot can generate until next time step
+        Vd = [(self.cur_v-self.max_a_v*self.dt), (self.cur_v+self.max_a_v*self.dt),
+                 (self.cur_w-self.max_a_w*self.dt), (self.cur_w+self.max_a_w*self.dt)]   #velocities robot can generate until next time step
         min_v = max(Vs[0], Vd[0])
         max_v = min(Vs[1], Vd[1])
         min_w = max(Vs[2], Vd[2])
@@ -231,19 +243,10 @@ class Robot:
         return paths
 
 
-    def normalize_1d(self,list):
-        norm = np.linalg.norm(list)
-        list = list/norm
-        return list
-
-
-
     def eval_path(self,paths,goal_x,goal_y,obstacles,state,goal_region):
         
         score_headings_temp = []
         score_velocities_temp = []
-        score_obstacles_temp = []
-        score_cost_temp = []
         score_obstacles = []
 
         for path in paths:
@@ -266,9 +269,9 @@ class Robot:
             temp_score = (self.heading_cost_weight*score_headings[k]) + (self.obstacle_cost_weight*score_obstacles[k]) + (self.velocity_cost_weight*score_velocities[k])
 
             if temp_score > score:
-                if paths[k].v == 0 and paths[k].w == 0:
-                    print("= ******0 hız isteği*****")
-                    continue
+                # if paths[k].v == 0 and paths[k].w == 0:
+                #     print("= ******0 hız isteği*****")
+                #     continue
                 opt_path = paths[k]
                 score = temp_score
                 # print(str(k)+ ". path is optimal for now, score :"+str(score))
@@ -343,10 +346,10 @@ class Robot:
         try: #slope should between 0 - 1
             if py > px:
                 slope = px/py
-            if py == 0 and px == 0:
-                slope = 0
             else:
                 slope = py/px
+            if py == 0 and px == 0:
+                slope = 0
         except ZeroDivisionError:
             slope = 0
         # print("slope =: {}".format(slope))
@@ -366,7 +369,9 @@ class Robot:
             x_pixel = (math.ceil((x)/resolution))+20
         else:
             # x_pixel = (math.floor((x-state.x)/resolution)) + 20
-            x_pixel = (math.floor((x)/resolution))+20
+            x_pixel = 20 - abs(math.floor((x)/resolution))
+        if x_pixel<0 or x_pixel > len(self.costmap[0]):
+            raise IndexError
 
         return x_pixel
 
@@ -421,37 +426,37 @@ class Robot:
             stp =  max(abs(x2-x1),abs(y2-y1))
             
             if stp == 0:
-                if x1<40 and y1<40:
-                    if a > 0:
-                        x3 = self.meter2pixel(path.x[a-1],state)
-                        y3 = self.meter2pixel(path.y[a-1],state)
-                        if max(abs(x2-x1),abs(y2-y1),abs(y3-y2),abs(x3-x2)) == 0:
-                            if not (a == len(path.x)-2):
-                                continue
-                            else:
-                                return cost_temp/temp_stp
-                    if self.costmap[x1][y1] <0.03:
-                        return cost_temp/temp_stp
-                    else:
-                        cost_temp = cost_temp + self.costmap[x1][y1]
+                # if x1<40 and y1<40:
+                if a > 0:
+                    x3 = self.meter2pixel(path.x[a-1],state)
+                    y3 = self.meter2pixel(path.y[a-1],state)
+                    if max(abs(x2-x1),abs(y2-y1),abs(y3-y2),abs(x3-x2)) == 0:
+                        if not (a == len(path.x)-2):
+                            continue
+                        else:
+                            return cost_temp/temp_stp
+                if self.costmap[x1][y1] <0.03:
+                    return cost_temp/temp_stp
+                else:
+                    cost_temp = cost_temp + self.costmap[x1][y1]
             else:
                 for i in range (1,stp+1):
                     if abs(x2-x1) > abs(y2-y1):
                         xx = x1 + sign_x*i
                         yy = y1 + math.floor(sign_y*i*slope)
-                        if xx<40 and yy<40:
-                            if self.costmap[xx][yy] <0.03:
-                                return cost_temp/temp_stp
-                            else:
-                                cost_temp = cost_temp + self.costmap[xx][yy]
+                        # if xx<40 and yy<40:
+                        if self.costmap[xx][yy] <0.03:
+                            return cost_temp/temp_stp
+                        else:
+                            cost_temp = cost_temp + self.costmap[xx][yy]
                     else:
                         yy = y1 + sign_y*i
                         xx = x1 + math.floor(sign_x*i*(slope))               
-                        if xx<40 and yy<40:
-                            if self.costmap[xx][yy] <0.03:
-                                return cost_temp/temp_stp
-                            else: 
-                                cost_temp = cost_temp + self.costmap[xx][yy]
+                        # if xx<40 and yy<40:
+                        if self.costmap[xx][yy] <0.03:
+                            return cost_temp/temp_stp
+                        else: 
+                            cost_temp = cost_temp + self.costmap[xx][yy]
 
         cost_norm = cost_temp/temp_stp
 

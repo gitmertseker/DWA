@@ -25,17 +25,17 @@ n =   30      # how many time intervals
 
 filename = "local_costmap_copy.txt"
 
-init_x = 0
-init_y = 0
-init_theta = 0
+init_x = 0.3 
+init_y = 0.5
+init_theta = np.pi
 
 
 init_v = 0
 init_w =0
 
 
-goal_x = 0.9
-goal_y = -0.6
+goal_x = -0.70
+goal_y = 0.5
 
 
 
@@ -51,6 +51,7 @@ def main(filename,min_v,max_v,min_w,max_w,max_a_v,max_a_w,delta_v,delta_w,dt,n,
 
     costmap = Costmap()
     cm = costmap.read_costmap(filename)
+    cm = [[0 for i in row] for row in cm]   # empty costmap 
     cm_rev = costmap.cm_rev(cm)
     cm_rev2 = costmap.cm_norm(cm_rev)
 
@@ -100,7 +101,7 @@ def main(filename,min_v,max_v,min_w,max_w,max_a_v,max_a_w,delta_v,delta_w,dt,n,
             plot_arrow(x, y, theta)
             #plt.axis("equal")
             plt.grid(True)
-            plt.xlim(-1,1)
+            plt.xlim(-1.5,1)
             plt.ylim(-1,1)
             if plt_ctr == 0:
                 plt.pause(1)
