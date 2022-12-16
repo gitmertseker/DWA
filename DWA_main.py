@@ -25,17 +25,17 @@ n =   30      # how many time intervals
 
 filename = "local_costmap_copy.txt"
 
-init_x = 0.3 
-init_y = 0.5
-init_theta = np.pi
+init_x = 0 
+init_y = 0
+init_theta = 0
 
 
 init_v = 0
 init_w =0
 
 
-goal_x = -0.70
-goal_y = 0.5
+goal_x =-0.5
+goal_y =-0.7
 
 
 
@@ -49,18 +49,16 @@ def plot_arrow(x, y, yaw, length=0.2, width=0.04):
 def main(filename,min_v,max_v,min_w,max_w,max_a_v,max_a_w,delta_v,delta_w,dt,n,
     heading_cost_weight,obstacle_cost_weight,velocity_cost_weight,goal_region = 0.02):
 
+    orig_px=30
     costmap = Costmap()
-    cm = costmap.read_costmap(filename)
-    cm = [[0 for i in row] for row in cm]   # empty costmap 
+    cm=np.zeros((orig_px*2,orig_px*2))
+    cm[orig_px-20:orig_px+20,orig_px-20:orig_px+20]=costmap.read_costmap(filename)
     cm_rev = costmap.cm_rev(cm)
     cm_rev2 = costmap.cm_norm(cm_rev)
-
-
     obstacles = costmap.find_obstacles(cm_rev2)
 
-
     robot = Robot(cm_rev2,min_v,max_v,min_w,max_w,max_a_v,max_a_w,max_dec_v,max_dec_w,delta_v,delta_w,dt,n,
-                    heading_cost_weight,obstacle_cost_weight,velocity_cost_weight)
+                    heading_cost_weight,obstacle_cost_weight,velocity_cost_weight,orig_px)
     state = RobotState(init_x,init_y,init_theta,init_v,init_w)
 
 
@@ -101,14 +99,14 @@ def main(filename,min_v,max_v,min_w,max_w,max_a_v,max_a_w,delta_v,delta_w,dt,n,
             plot_arrow(x, y, theta)
             #plt.axis("equal")
             plt.grid(True)
-            plt.xlim(-1.5,1)
-            plt.ylim(-1,1)
+            plt.xlim(-1.5,1.5)
+            plt.ylim(-1.5,1.5)
             if plt_ctr == 0:
                 plt.pause(1)
-            plt.pause(0.001)
+            # plt.pause(0.001)
             # plt.pause(0.5)
             
-            # while not plt.waitforbuttonpress(): pass
+            while not plt.waitforbuttonpress(): pass
             plt_ctr += 1
 
 
