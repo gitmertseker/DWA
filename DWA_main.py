@@ -25,8 +25,8 @@ n =   30      # how many time intervals
 
 filename = "local_costmap_copy.txt"
 
-init_x = 0.3 
-init_y = 0.5
+init_x = 0
+init_y = 0
 init_theta = np.pi
 
 
@@ -34,8 +34,11 @@ init_v = 0
 init_w =0
 
 
-goal_x = -0.70
-goal_y = 0.5
+goal_x = -0 
+goal_y = -0.5 #h_c = 6
+
+# goal_x = 0
+# goal_y = 0.7  #h_c = 15
 
 
 
@@ -51,7 +54,7 @@ def main(filename,min_v,max_v,min_w,max_w,max_a_v,max_a_w,delta_v,delta_w,dt,n,
 
     costmap = Costmap()
     cm = costmap.read_costmap(filename)
-    cm = [[0 for i in row] for row in cm]   # empty costmap 
+    # cm = [[0 for i in row] for row in cm]   # empty costmap 
     cm_rev = costmap.cm_rev(cm)
     cm_rev2 = costmap.cm_norm(cm_rev)
 
@@ -125,10 +128,12 @@ def main(filename,min_v,max_v,min_w,max_w,max_a_v,max_a_w,delta_v,delta_w,dt,n,
     plt.show()
 
 
-heading_cost_weight = 3.1
+# heading_cost_weight = 3.1
+heading_cost_weight = 6
+# heading_cost_weight = 15
 obstacle_cost_weight = 1
 velocity_cost_weight = 1
-goal_region = 0.02
+goal_region = 0.03
 
 print("Start!!")
 # start_time = time.perf_counter()

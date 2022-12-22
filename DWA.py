@@ -208,6 +208,7 @@ class Robot:
     def calc_opt_traj(self,goal_x,goal_y,state,obstacles,goal_region):
 
         paths = self.make_path(state)
+        # paths = self.check_path_velo(paths,obstacles)
         opt_path = self.eval_path(paths,goal_x,goal_y,obstacles,state,goal_region)
         
         self.traj_opt.append(opt_path)
@@ -248,12 +249,22 @@ class Robot:
         score_headings_temp = []
         score_velocities_temp = []
         score_obstacles = []
+        obs_idx = []
+        obs_pixel_x = []
+        obs_pixel_y = []
 
         for path in paths:
 
             score_headings_temp.append(self.calc_heading(path,goal_x,goal_y,state,goal_region))
             score_velocities_temp.append(self.calc_velocity(path))
-            score_obstacles.append(self.calc_clearance(path,state)) #iceride normalize ediliyor !!
+            temp_score,idx,xx,yy = self.calc_clearance(path,state)
+            # score_obstacles.append(self.calc_clearance(path,state)) #iceride normalize ediliyor !!
+            score_obstacles.append(temp_score)
+            obs_idx.append(idx)
+            obs_pixel_x.append(xx)
+            obs_pixel_y.append(yy)
+
+
 
 
         #normalization
@@ -269,6 +280,9 @@ class Robot:
             temp_score = (self.heading_cost_weight*score_headings[k]) + (self.obstacle_cost_weight*score_obstacles[k]) + (self.velocity_cost_weight*score_velocities[k])
 
             if temp_score > score:
+                # if not self.check_path_velo(paths[k],obs_idx[k],obs_pixel_x[k],obs_pixel_y[k],paths[k].v,paths[k].w,state):
+                #     print("Not admissible velocity !!!")
+                #     continue
                 # if paths[k].v == 0 and paths[k].w == 0:
                 #     print("= ******0 hız isteği*****")
                 #     continue
@@ -279,6 +293,33 @@ class Robot:
             return opt_path
         except:
             raise("Can not calculate optimal path!")
+
+
+
+    def check_path_velo(self,path,idx,xx,yy,v,w,state,resolution = 0.05):
+
+        if idx == None:
+            return True
+        else:
+            x_0 = self.meter2pixel(path.x[idx],state)
+            y_0 = self.meter2pixel(path.y[idx],state)
+            sum = self.distance(x_0,xx,y_0,yy)
+            for i in range(idx,1,-1):
+                x1 = self.meter2pixel(path.x[i],state)
+                y1 = self.meter2pixel(path.y[i-1],state)
+                x2 = self.meter2pixel(path.x[i],state)
+                y2 = self.meter2pixel(path.y[i-1],state)
+
+                sum = (sum + self.distance(x1,x2,y1,y2))
+            sum = sum*resolution
+            cond_v =  v < np.sqrt(2*sum*self.max_dec_v)
+            cond_w =  w < np.sqrt(2*sum*self.max_dec_w)
+
+            if cond_v and cond_w:
+                return True
+            else:
+                return False
+
 
 
 
@@ -370,7 +411,7 @@ class Robot:
         else:
             # x_pixel = (math.floor((x-state.x)/resolution)) + 20
             x_pixel = 20 - abs(math.floor((x)/resolution))
-        if x_pixel<0 or x_pixel > len(self.costmap[0]):
+        if x_pixel < 0 or x_pixel > len(self.costmap[0]):
             raise IndexError
 
         return x_pixel
@@ -434,9 +475,9 @@ class Robot:
                         if not (a == len(path.x)-2):
                             continue
                         else:
-                            return cost_temp/temp_stp
+                            return cost_temp/temp_stp,None,x1,y1
                 if self.costmap[x1][y1] <0.03:
-                    return cost_temp/temp_stp
+                    return cost_temp/temp_stp,a,x1,y1
                 else:
                     cost_temp = cost_temp + self.costmap[x1][y1]
             else:
@@ -446,7 +487,7 @@ class Robot:
                         yy = y1 + math.floor(sign_y*i*slope)
                         # if xx<40 and yy<40:
                         if self.costmap[xx][yy] <0.03:
-                            return cost_temp/temp_stp
+                            return cost_temp/temp_stp,a,xx,yy
                         else:
                             cost_temp = cost_temp + self.costmap[xx][yy]
                     else:
@@ -454,14 +495,10 @@ class Robot:
                         xx = x1 + math.floor(sign_x*i*(slope))               
                         # if xx<40 and yy<40:
                         if self.costmap[xx][yy] <0.03:
-                            return cost_temp/temp_stp
+                            return cost_temp/temp_stp,a,xx,yy
                         else: 
                             cost_temp = cost_temp + self.costmap[xx][yy]
 
         cost_norm = cost_temp/temp_stp
 
-        return cost_norm
-
-
-
-
+        return cost_norm,None,xx,yy
