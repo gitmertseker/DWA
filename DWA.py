@@ -121,7 +121,7 @@ class RobotState:
 
 class Robot:
     def __init__(self,costmap,min_v,max_v,min_w,max_w,max_a_v,max_a_w,max_dec_v,max_dec_w,delta_v,delta_w,dt,n,
-                heading_cost_weight,obstacle_cost_weight,velocity_cost_weight):
+                heading_cost_weight,obstacle_cost_weight,velocity_cost_weight,orig_px):
         #robot parameters
 
         self.min_v = min_v       # minimum translational velocity
@@ -151,6 +151,7 @@ class Robot:
         self.traj_paths = []
         self.traj_opt = []
 
+        self.origin_pixel = orig_px
 
 
     def angle_correction(self,angle):
@@ -373,8 +374,8 @@ class Robot:
         for obs in obstacles:
             # (20,20) initial robot position, resolution = 5 cm/pixel
 
-            obs_x_temp = 0.05*(obs.x-20)
-            obs_y_temp = 0.05*(obs.y-20)
+            obs_x_temp = 0.05*(obs.x-self.origin_pixel)
+            obs_y_temp = 0.05*(obs.y-self.origin_pixel)
             obs_x.append(obs_x_temp)
             obs_y.append(obs_y_temp)
 
@@ -407,11 +408,11 @@ class Robot:
 
         if x > state.x:       
             # x_pixel = (math.ceil((x-state.x)/resolution)) + 20
-            x_pixel = (math.ceil((x)/resolution))+20
+            x_pixel = (math.ceil((x)/resolution))+self.origin_pixel
         else:
             # x_pixel = (math.floor((x-state.x)/resolution)) + 20
-            x_pixel = 20 - abs(math.floor((x)/resolution))
-        if x_pixel < 0 or x_pixel > len(self.costmap[0]):
+            x_pixel = self.origin_pixel - abs(math.floor((x)/resolution))
+        if x_pixel<0 or x_pixel > len(self.costmap[0]):
             raise IndexError
 
         return x_pixel
