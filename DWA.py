@@ -12,6 +12,7 @@ class Path:
         self.theta = None
         self.v = v
         self.w = w
+        self.admissibility = True
 
 
 class Obstacle:
@@ -121,7 +122,7 @@ class RobotState:
 
 class Robot:
     def __init__(self,costmap,min_v,max_v,min_w,max_w,max_a_v,max_a_w,max_dec_v,max_dec_w,delta_v,delta_w,dt,n,
-                heading_cost_weight,obstacle_cost_weight,velocity_cost_weight,orig_px):
+                heading_cost_weight,obstacle_cost_weight,velocity_cost_weight,orig_px,init_x,init_y):
         #robot parameters
 
         self.min_v = min_v       # minimum translational velocity
@@ -137,11 +138,13 @@ class Robot:
         self.dt = dt          # time step
         self.n = n           #how many time intervals
 
+        self.init_x = init_x
+        self.init_y = init_y
 
         self.costmap = costmap
 
-        self.v_count = 5
-        self.w_count = 5
+        self.v_count = 8
+        self.w_count = 8
 
         self.heading_cost_weight = heading_cost_weight
 
@@ -276,14 +279,18 @@ class Robot:
         score = 0
 
         for k in range(len(paths)):
+            # dis_to_goal = np.sqrt((goal_x-state.x)**2 + (goal_y-state.y)**2)
+            # self.heading_cost_weight = self.heading_cost_weight/dis_to_goal
+            # print(self.heading_cost_weight)
             temp_score = 0
 
             temp_score = (self.heading_cost_weight*score_headings[k]) + (self.obstacle_cost_weight*score_obstacles[k]) + (self.velocity_cost_weight*score_velocities[k])
 
             if temp_score > score:
-                # if not self.check_path_velo(paths[k],obs_idx[k],obs_pixel_x[k],obs_pixel_y[k],paths[k].v,paths[k].w,state):
-                #     print("Not admissible velocity !!!")
-                #     continue
+                if not self.check_path_velo(paths[k],obs_idx[k],obs_pixel_x[k],obs_pixel_y[k],paths[k].v,paths[k].w,state):
+                    print("Not admissible velocity !!!")
+                    paths[k].admissibility = False
+                    continue
                 # if paths[k].v == 0 and paths[k].w == 0:
                 #     print("= ******0 hız isteği*****")
                 #     continue
@@ -294,6 +301,8 @@ class Robot:
             return opt_path
         except:
             raise("Can not calculate optimal path!")
+            # opt_path.v = 0
+            # opt_path.w = 0
 
 
 
@@ -302,19 +311,19 @@ class Robot:
         if idx == None:
             return True
         else:
-            x_0 = self.meter2pixel(path.x[idx],state)
-            y_0 = self.meter2pixel(path.y[idx],state)
-            sum = self.distance(x_0,xx,y_0,yy)
+            x_0 = self.meter2pixel(path.x[idx],state,'x')
+            y_0 = self.meter2pixel(path.y[idx],state,'y')
+            sum = self.distance(x_0,xx,y_0,yy)*resolution
             for i in range(idx,1,-1):
-                x1 = self.meter2pixel(path.x[i],state)
-                y1 = self.meter2pixel(path.y[i-1],state)
-                x2 = self.meter2pixel(path.x[i],state)
-                y2 = self.meter2pixel(path.y[i-1],state)
-
+                x1 = path.x[i-1]
+                x2 = path.x[i]
+                y1 = path.y[i-1]
+                y2 = path.y[i]
                 sum = (sum + self.distance(x1,x2,y1,y2))
-            sum = sum*resolution
+
             cond_v =  v < np.sqrt(2*sum*self.max_dec_v)
-            cond_w =  w < np.sqrt(2*sum*self.max_dec_w)
+            dist_w = path.theta[idx]-state.theta
+            cond_w =  w < np.sqrt(2*dist_w*self.max_dec_w)
 
             if cond_v and cond_w:
                 return True
@@ -383,6 +392,14 @@ class Robot:
 
 
 
+    def pixel2meter(self,pixel):
+
+            # (20,20) initial robot position, resolution = 5 cm/pixel
+
+        return 0.05*(pixel-self.origin_pixel)
+
+
+
     def calculateSlope(self,x1,x2,y1,y2):
         (px,py) = (abs(x2-x1),abs(y2-y1))
         try: #slope should between 0 - 1
@@ -404,14 +421,22 @@ class Robot:
         return (px+py)**(0.5)
 
 
-    def meter2pixel(self,x,state,resolution=0.05):
+    def meter2pixel(self,x,state,var,resolution=0.05):
 
-        if x > state.x:       
-            # x_pixel = (math.ceil((x-state.x)/resolution)) + 20
-            x_pixel = (math.ceil((x)/resolution))+self.origin_pixel
+        #init yerine state olmalı !!
+        if var == 'x':
+            init = self.init_x
+        elif var == 'y':
+            init = self.init_y
+
+
+        if x > init:       
+            x_pixel = (math.ceil((x-init-(resolution/2))/resolution))+self.origin_pixel
+        elif x == init:
+            return self.origin_pixel
         else:
-            # x_pixel = (math.floor((x-state.x)/resolution)) + 20
-            x_pixel = self.origin_pixel - abs(math.floor((x)/resolution))
+            x_pixel = self.origin_pixel - abs(math.floor((x-init+(resolution/2))/resolution))
+
         if x_pixel<0 or x_pixel > len(self.costmap[0]):
             raise IndexError
 
@@ -434,13 +459,13 @@ class Robot:
             y2 = path.y[a+1]
         
 
-            x1 = self.meter2pixel(x1,state)
-            x2 = self.meter2pixel(x2,state)
-            y1 = self.meter2pixel(y1,state)
-            y2 = self.meter2pixel(y2,state)
+            x1 = self.meter2pixel(x1,state,'x')
+            x2 = self.meter2pixel(x2,state,'x')
+            y1 = self.meter2pixel(y1,state,'y')
+            y2 = self.meter2pixel(y2,state,'y')
             if a > 0:
-                x3 = self.meter2pixel(path.x[a-1],state)
-                y3 = self.meter2pixel(path.y[a-1],state)
+                x3 = self.meter2pixel(path.x[a-1],state,'x')
+                y3 = self.meter2pixel(path.y[a-1],state,'y')
             pix_ctr = max(abs(x2-x1),abs(y2-y1))
             if pix_ctr == 0:
                 if a > 0:
@@ -452,16 +477,16 @@ class Robot:
 
 
         for a in range(len(path.x)-1):
-            x1 = path.x[a]
-            x2 = path.x[a+1]
+            x1_ = path.x[a]
+            x2_ = path.x[a+1]
 
-            y1 = path.y[a]
-            y2 = path.y[a+1]        
+            y1_ = path.y[a]
+            y2_ = path.y[a+1]        
 
-            x1 = self.meter2pixel(x1,state)
-            x2 = self.meter2pixel(x2,state)
-            y1 = self.meter2pixel(y1,state)
-            y2 = self.meter2pixel(y2,state)
+            x1 = self.meter2pixel(x1_,state,'x')
+            x2 = self.meter2pixel(x2_,state,'x')
+            y1 = self.meter2pixel(y1_,state,'y')
+            y2 = self.meter2pixel(y2_,state,'y')
             slope = self.calculateSlope(x1,x2,y1,y2)
             sign_x = np.sign(x2-x1)
             sign_y = np.sign(y2-y1)
@@ -470,8 +495,8 @@ class Robot:
             if stp == 0:
                 # if x1<40 and y1<40:
                 if a > 0:
-                    x3 = self.meter2pixel(path.x[a-1],state)
-                    y3 = self.meter2pixel(path.y[a-1],state)
+                    x3 = self.meter2pixel(path.x[a-1],state,'x')
+                    y3 = self.meter2pixel(path.y[a-1],state,'y')
                     if max(abs(x2-x1),abs(y2-y1),abs(y3-y2),abs(x3-x2)) == 0:
                         if not (a == len(path.x)-2):
                             continue
